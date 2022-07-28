@@ -1,5 +1,5 @@
 {
-  "name": "webapi",
+  "name": "xesremote",
   "version": "1.0.0",
   "description": "学而思远程代码运行",
   "main": "xesremote.ts",
