@@ -1,0 +1,20 @@
+{
+  "name": "webapi",
+  "version": "1.0.0",
+  "description": "学而思远程代码运行",
+  "main": "xesremote.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "js-base64": "^3.7.2",
+    "ts-node": "^10.9.1",
+    "ws": "^8.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.6.2",
+    "@types/ws": "^8.5.3"
+  }
+}
