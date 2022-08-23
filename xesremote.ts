@@ -96,7 +96,7 @@ export class XesRemote {
         case '3':
           return void this.onopen()
         case '2':
-          return this._ws.send('2')
+          return
         default:
           return void this.onmessage(new MsgEvent(MsgType.Unknown, Buffer.from(data)))
       }
