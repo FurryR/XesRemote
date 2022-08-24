@@ -34,11 +34,11 @@ export class XesRemote {
   private _heartbeat: NodeJS.Timer
   private echo: boolean
   // 收到消息的事件。
-  onmessage: (ev: MsgEvent) => Promise<void> = async () => void null
+  onmessage: (ev: MsgEvent) => void | Promise<void> = async () => void null
   // 连接关闭的事件。
-  onclose: (ev: ws.CloseEvent) => Promise<void> = async () => void null
+  onclose: (ev: ws.CloseEvent) => void | Promise<void> = async () => void null
   // 连接发生错误的事件。
-  onerror: (ev: ws.ErrorEvent) => Promise<void> = async () => void null
+  onerror: (ev: ws.ErrorEvent) => void | Promise<void> = async () => void null
   // 连接打开的事件。
   onopen: () => Promise<void> = async () => void null
   /**
@@ -78,34 +78,43 @@ export class XesRemote {
           })
       )
     }
-    this._ws.onmessage = (ev: ws.MessageEvent): void => {
+    this._ws.onmessage = async (ev: ws.MessageEvent): Promise<void> => {
       let data: string = ev.data.toString('utf-8')
       switch (data[0]) {
         case '1': {
           if (echo || !this._sended)
-            return void this.onmessage(
-              new MsgEvent(MsgType.Output, Buffer.from(Base64.toUint8Array(data.substring(1))))
+            return await this.onmessage(
+              new MsgEvent(
+                MsgType.Output,
+                Buffer.from(Base64.toUint8Array(data.substring(1)))
+              )
             )
           this._sended = false
           break
         }
         case '7':
-          return void this.onmessage(
-            new MsgEvent(MsgType.System, Buffer.from(Base64.toUint8Array(data.substring(1))))
+          return await this.onmessage(
+            new MsgEvent(
+              MsgType.System,
+              Buffer.from(Base64.toUint8Array(data.substring(1)))
+            )
           )
         case '3':
-          return void this.onopen()
+          return await this.onopen()
         case '2':
           return
         default:
-          return void this.onmessage(new MsgEvent(MsgType.Unknown, Buffer.from(data)))
+          return await this.onmessage(
+            new MsgEvent(MsgType.Unknown, Buffer.from(data))
+          )
       }
     }
-    this._ws.onclose = (ev: ws.CloseEvent): void => {
+    this._ws.onclose = async (ev: ws.CloseEvent): Promise<void> => {
       clearInterval(this._heartbeat)
-      this.onclose(ev)
+      await this.onclose(ev)
     }
-    this._ws.onerror = (ev: ws.ErrorEvent): void => void this.onerror(ev)
+    this._ws.onerror = async (ev: ws.ErrorEvent): Promise<void> =>
+      await this.onerror(ev)
     this._heartbeat = setInterval((): void => this._ws.send('2'), 10000) // heartbeat
   }
 }
