@@ -25,14 +25,13 @@ export class MsgEvent {
    * 当消息类型为MsgType.Unknown时，data不解码。
    */
   constructor(type: MsgType, data: Buffer = Buffer.from([])) {
-    ;[this.type, this.data] = [type, data]
+    void ([this.type, this.data] = [type, data])
   }
 }
 export class XesRemote {
   private _ws: ws.WebSocket
   private _sended = false
   private _heartbeat: NodeJS.Timer
-  private echo: boolean
   // 收到消息的事件。
   onmessage: (ev: MsgEvent) => void | Promise<void> = async () => void null
   // 连接关闭的事件。
@@ -62,7 +61,6 @@ export class XesRemote {
    * @param echo 控制是否回显。此参数设置为true时，send方法发送的数据将被onmessage接收。
    */
   constructor(lang: Language, content: string, echo = false) {
-    this.echo = echo
     this._ws = new ws.WebSocket(
       'wss://codedynamic.xueersi.com/api/compileapi/ws/run'
     )
@@ -79,7 +77,7 @@ export class XesRemote {
       )
     }
     this._ws.onmessage = async (ev: ws.MessageEvent): Promise<void> => {
-      let data: string = ev.data.toString('utf-8')
+      const data: string = ev.data.toString('utf-8')
       switch (data[0]) {
         case '1': {
           if (echo || !this._sended)
