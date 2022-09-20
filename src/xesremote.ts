@@ -28,24 +28,48 @@ export class MsgEvent {
     void ([this.type, this.data] = [type, data])
   }
 }
+function trySend(ws: ws.WebSocket, data: string): Promise<void> {
+  ws.send(data)
+  return new Promise<void>(resolve => {
+    const i = setInterval(() => {
+      if (ws.readyState == ws.CLOSED || ws.readyState == ws.CLOSING) {
+        clearInterval(i)
+        resolve()
+      }
+      if (ws.bufferedAmount == 0) {
+        clearInterval(i)
+        resolve()
+      }
+    })
+  })
+}
 export class XesRemote {
   private _ws: ws.WebSocket
   private _sended = false
   private _heartbeat: NodeJS.Timer
+  private _host: Promise<string>
   // 收到消息的事件。
-  onmessage: (ev: MsgEvent) => void | Promise<void> = async () => void null
+  onmessage: (ev: MsgEvent) => Promise<void> | void = async () => void null
   // 连接关闭的事件。
-  onclose: (ev: ws.CloseEvent) => void | Promise<void> = async () => void null
+  onclose: (ev: ws.CloseEvent) => Promise<void> | void = async () => void null
   // 连接发生错误的事件。
-  onerror: (ev: ws.ErrorEvent) => void | Promise<void> = async () => void null
+  onerror: (ev: ws.ErrorEvent) => Promise<void> | void = async () => void null
   // 连接打开的事件。
-  onopen: () => Promise<void> = async () => void null
+  onopen: () => Promise<void> | void = async () => void null
   /**
-   * 发送一段Buffer作为输入。
+   * 获得目标服务器。
+   * @returns 服务器ID。
+   */
+  host(): Promise<string> {
+    return this._host
+  }
+  /**
+   * 发送一段文本作为输入。
    * @param val 要发送的内容。
    */
-  async send(val: Buffer): Promise<void> {
-    this._ws.send('1' + val.toString())
+  async send(val: string): Promise<void> {
+    if (val.length < 1) return
+    await trySend(this._ws, '1' + val)
     this._sended = true
   }
   /**
@@ -56,23 +80,44 @@ export class XesRemote {
   }
   /**
    * 初始化XesRemote。
-   * @param lang 语言。
-   * @param content 需要远程运行的代码。
-   * @param echo 控制是否回显。此参数设置为true时，send方法发送的数据将被onmessage接收。
+   * @param option         选项。
+   * @param option.lang    语言。
+   * @param option.content 需要远程运行的代码。
+   * @param option.args    程序参数。
+   * @param option.echo    控制是否回显。此参数设置为true时，send方法发送的数据将被onmessage接收。
    */
-  constructor(lang: Language, content: string, echo = false) {
+  constructor({
+    lang,
+    content,
+    args = [],
+    echo = false
+  }: {
+    lang: Language
+    content: string
+    args?: string[]
+    echo?: boolean
+  }) {
     this._ws = new ws.WebSocket(
       'wss://codedynamic.xueersi.com/api/compileapi/ws/run'
     )
-    this._ws.onopen = (): void => {
-      this._ws.send('{}')
-      this._ws.send(
+    this._host = new Promise(resolve => {
+      this._ws.on('upgrade', resp => {
+        const a = resp.headers['server']
+        if (typeof a == 'string') resolve(a)
+        else resolve(`(unknown host ${JSON.stringify(a)})`)
+      })
+    })
+    this._ws.onopen = async (): Promise<void> => {
+      await trySend(this._ws, '{}')
+      await trySend(
+        this._ws,
         '7' +
           JSON.stringify({
             xml: content,
             type: 'run',
             lang: lang,
-            original_id: 1
+            original_id: 1,
+            args
           })
       )
     }
@@ -113,6 +158,9 @@ export class XesRemote {
     }
     this._ws.onerror = async (ev: ws.ErrorEvent): Promise<void> =>
       await this.onerror(ev)
-    this._heartbeat = setInterval((): void => this._ws.send('2'), 10000) // heartbeat
+    this._heartbeat = setInterval(
+      async (): Promise<void> => await trySend(this._ws, '2'),
+      10000
+    ) // heartbeat
   }
 }
